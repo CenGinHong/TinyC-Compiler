@@ -1,0 +1,1048 @@
+/* adder.jj Adding up numbers */
+//EBNF文法
+
+//program -> declaration-list
+//###declaration-list -> declaration-list declaration | declaration
+//declaration-list -> declaration{ declaration}
+//declaration -> var-declaration | fun-declaration
+//var-declaration -> type-specifier ID; | type-specifier ID[NUM];
+//type-specifier -> int | void
+//fun-declaration -> type-specifier ID (params) | compound-stmt
+//params -> param-list | void
+//param-list -> param-list, param | param
+//param -> type-specifier ID | type-specifier ID[ ]
+//compound-stmt -> {local-declarations statement-list}
+//###local-declarations -> local-declarations var-declaration | empty
+//local-declarations -> empty{ var-declaration}
+//###statement-list -> statement-list statement | empty
+//statement-list -> empty{ statement}
+//statement -> expression-stmt | compound-stmt | selection-stmt | iteration-stmt | return stmt
+//expression-stmt -> expression; | ;
+
+//ifelse修改过,解决二义性
+//selection-stmt -> matched-stmt | unmatched-stmt
+//!!!compound-stmt
+//matched-stmt -> if (expression) matched-stmt else matched-stmt | compound-stmt
+//unmatched-stmt -> if (expression) selection-stmt | if (expression) matched-stmt else unmatched-stmt
+
+//iteration-stmt -> while (expression) statement
+//return-stmt -> return; | return expression;
+//expression -> var=expression | simple-expression
+//var -> ID| ID[expression]
+//simple-experession -> additive-expression relop additive-expression | additive-expression
+//relop -> <=|<|>|>=|==|!=
+//###additive-expression -> additive-expression addop term | term
+//additive-expression -> term{ addop term}
+//addop -> +|-
+//###term -> term mulop factor | factor
+//term -> factor{  mulop factor}
+//mulop -> *|/
+//factor -> (expression) | var | call | NUM
+//call -> ID(args)
+//args -> arg-list | empty
+//###arg-list -> arg-list, expression| expression
+//arg-list -> expression{ , expression}
+
+//javacc C:\Users\CJH\IdeaProjects\MyCompiler\src\com\compiler\MyCompiler.jj
+
+options {
+    STATIC = false ;
+    MULTI = true;
+    VISITOR = true;
+    UNICODE_INPUT = true;
+}
+
+PARSER_BEGIN(MyCompiler)
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;import java.util.*;
+    class MyCompiler {
+
+        private ErrorList errorList = new ErrorList();
+        private SymbolTable symbolTable = new SymbolTable();
+        private CodeGen codeGen = new CodeGen(false);
+
+        public static void main( String[] args ) throws TokenMgrError, FileNotFoundException, ParseException {
+
+            String path = "C:\\Users\\CJH\\IdeaProjects\\test1\\test.txt";
+            FileInputStream fileInputStream = new FileInputStream(new File(path));
+            MyCompiler parser = new MyCompiler(fileInputStream);
+            parser.program();
+            SimpleNode node = (SimpleNode)parser.jjtree.rootNode();
+                        StringBuilder stringBuilder = new StringBuilder();
+                        node.dump("",stringBuilder);
+            parser.errorList.printError();
+            List<String> qt = parser.codeGen.getQt();
+            for (String q : qt) {
+                System.out.println(q);
+            }
+        }
+    }
+PARSER_END(MyCompiler)
+
+//跳过
+SKIP : {
+    //空格换行制表符
+    " "
+    | "\n"
+    | "\r"
+    | "\t"
+    //跳过单行注释
+    | <"//"(~["\n", "\r"])*("\n"
+    | "\r"
+    | "\r\n")>
+    //跳过多行注释
+    | <"/*"(~["*"])*"*"(~["/"](~["*"])*"*")*"/">
+}
+
+//定义关键字
+TOKEN:
+{
+    < IF : "if" >
+
+    | < ELSE : "else" >
+
+    | < WHILE : "while" >
+
+    | < INT : "int" >
+
+    | < RETURN : "return" >
+
+    | < VOID : "void" >
+
+    | < OUTPUT : "output" >
+
+    | < INPUT : "input" >
+}
+
+//定义标识符
+TOKEN : {
+    < #letter : ["a" - "z" , "A" - "Z"] >
+
+    | < ID : (<letter>)+ >
+}
+
+//定义整数
+TOKEN : {
+    < #digit : ["0" - "9"] >
+
+    | < NUM : (<digit>)+ >
+}
+
+//定义符号
+TOKEN : {
+    < SEMICOLON:";" >
+
+    | < EQUAL : "==" >
+
+    | < NOTEQUAL : "!=" >
+
+    | < ASSIGN : "=" >
+
+    | < PLUS : "+" >
+
+    | < MINUS : "-" >
+
+    | < TIMES : "*" >
+
+    | < DIVIDE : "/" >
+
+    | < COMMA : "," >
+
+    | < LEFTPARENTHESES: "(" >
+
+    | < RIGHTPARENTHESES : ")" >
+
+    | < LEFTBRACKET : "[" >
+
+    | < RIGHTBRACKET : "]" >
+
+//    | < ALLBRACKET : (<letter>)+"[]" >
+
+    | < ARRAYELEMENT : <ID>"[" >
+
+    | < LEFTBRACES : "{" >
+
+    | < RIGHTBRACES : "}" >
+
+    | < LT : "<" >
+
+    | < GT : ">" >
+
+    | < LTE : "<=" >
+
+    | < GTE : ">=" >
+
+
+}
+
+//program -> declaration-list
+void program() :
+{Token id;}
+{
+    {
+        HashMap<String, VarInfo> map = new HashMap<String, VarInfo>();
+        symbolTable.getVarList().add(map);
+        codeGen.emitRM(codeGen.OP_LD,codeGen.REG_MP,0,codeGen.REG_AC,"load maxaddress from location 0");
+        codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,0,codeGen.REG_AC,"clear location 0");
+        codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_LP,0,codeGen.REG_GP,"init lp");
+        codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,0,codeGen.REG_GP,"init sp");
+    }
+    declarationList()
+    id = <EOF>
+    {
+    if (!"main".equals(symbolTable.getLatestDeclarationFun().getName())) {
+        errorList.addLastNotMain(id);
+    }
+     //leave a  block,remove a new hashmap
+    symbolTable.getVarList().remove(symbolTable.getVarList().size() - 1);
+    codeGen.emitRO(codeGen.OP_HALT,0,0,0,"");
+    }
+}
+
+//declaration-list -> declaration{ declaration}
+void declarationList() :
+{}
+{
+    declaration()
+    (
+        declaration()
+    )*
+}
+//declaration -> var-declaration | fun-declaration
+void declaration() :
+{}
+{
+   LOOKAHEAD(2147483647) varDeclaration() |
+   funDeclaration()
+
+}
+
+
+//var-declaration -> type-specifier ID; | type-specifier ID[NUM];
+/**
+* var-declaration -> type-specifier ID; | type-specifier ID[NUM];
+* 因为只能定义int变量和数组，故修改
+* var-declaration -> int ID; | int ID[NUM];
+*/
+void varDeclaration() :
+{
+  Token t;
+  Token id;
+  VarInfo var;
+  Token size;
+}
+{
+     LOOKAHEAD(2147483647) <INT> id = <ID>  <SEMICOLON>
+    {
+    jjtThis.setName("int: " + id.image);
+    var = new VarInfo("int", id);
+    var.setSize(1);
+    if (!symbolTable.addVar(var))
+    {
+        errorList.addVarHaveDeclared(id);
+    } else {
+        codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,1,codeGen.REG_SP,"increase sp") ;
+        if (symbolTable.isGlobalVar(id.image)) {
+            codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_LP,1,codeGen.REG_LP,"def a global var, increase lp") ;
+        }
+    }
+    }
+    | <INT> id = <ARRAYELEMENT> size = <NUM> <RIGHTBRACKET> <SEMICOLON>
+    {
+        jjtThis.setName("int: " + id.image + size.image + "]" );
+        id.image = id.image.replace("[", "");
+        var = new VarInfo("int[]", id);
+        var.setSize(Integer.parseInt(size.image));
+        if (!symbolTable.addVar(var))
+        {
+            errorList.addVarHaveDeclared(id);
+        } else {
+            codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,Integer.parseInt(size.image),codeGen.REG_SP,"var[] local ins sp") ;
+             if (symbolTable.isGlobalVar(id.image)) {
+                 codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_LP,Integer.parseInt(size.image),codeGen.REG_LP,"var global ins sp") ;
+             }
+        }
+    }
+}
+
+//fun-declaration -> type-specifier ID (params) | compound-stmt
+void funDeclaration() :
+{
+    Token id;
+    Token returnType;
+    FunInfo fun;
+    List<VarInfo> par;
+    int callFunLoc = 0;
+    int jumpLoc = 0;
+    int currentLoc = 0;
+}
+{
+    returnType = <INT> id = <ID>  <LEFTPARENTHESES> par = params() <RIGHTPARENTHESES>
+    {
+        jjtThis.setName(id.image + ":int");
+        if (!"main".equals(id.image)){
+            jumpLoc = codeGen.emitSkip(1);
+        }
+        fun = new FunInfo(returnType.image, id, par);
+        callFunLoc = codeGen.emitSkip(0);
+        fun.setLoc(callFunLoc);
+        if (!symbolTable.addFun(fun))
+        {
+            errorList.addFunHaveDeclared(id);
+        } else {
+            List<VarInfo> tempFunPar = symbolTable.getTempFunPar();
+            tempFunPar.clear();
+            tempFunPar.addAll(par);
+        }
+    }
+    compoundStmt()
+    {
+        if (!"main".equals(id.image)){
+                currentLoc = codeGen.emitSkip(0);
+                codeGen.emitBackup(jumpLoc);
+                codeGen.emitRM_Abs(codeGen.OP_LDA,codeGen.REG_PC,currentLoc,"jmp to fun end");
+                codeGen.emitRestore();
+        }
+     }
+
+    | returnType = <VOID> id = <ID>  <LEFTPARENTHESES> par = params() <RIGHTPARENTHESES>
+    //定义函数头,注意记录返回值
+    {
+        jjtThis.setName(id.image + ":void");
+        if (!"main".equals(id.image)){
+            jumpLoc = codeGen.emitSkip(1);
+        }
+        //Define the function header, pay attention to record the return value
+        fun = new FunInfo(returnType.image, id, par);
+        callFunLoc = codeGen.emitSkip(0);
+        fun.setLoc(callFunLoc);
+        if (!symbolTable.addFun(fun))
+        {
+            errorList.addFunHaveDeclared(id);
+        } else {
+             List<VarInfo> tempFunPar = symbolTable.getTempFunPar();
+             tempFunPar.clear();
+             //add the symbol to it inorder to init the fun symbol
+             tempFunPar.addAll(par);
+        }
+    }
+    compoundStmt()
+    {
+        if (!"main".equals(id.image)){
+            currentLoc = codeGen.emitSkip(0);
+            codeGen.emitBackup(jumpLoc);
+            codeGen.emitRM_Abs(codeGen.OP_LDA,codeGen.REG_PC,currentLoc,"jmp to fun end");
+            codeGen.emitRestore();
+        }
+     }
+}
+
+//params -> param-list | void
+List<VarInfo> params() :
+{
+ List<VarInfo> par;
+ }
+{
+    par = paramList()
+    {
+        return par;
+    }
+    | <VOID>
+    {return Collections.emptyList();}
+}
+
+//param-list -> param{ , param}
+List<VarInfo> paramList() :
+{
+ List<VarInfo> par;
+ VarInfo para;
+ }
+{
+    para = param()
+    {
+        par = new ArrayList<VarInfo>();
+        par.add(para);
+    }
+    (
+        <COMMA>
+        para = param()
+        {
+            par.add(para);
+        }
+    )*
+    {
+        return par;
+    }
+
+}
+
+/**
+* param -> type-specifier ID | type-specifier ID[]
+* 改造文法
+* param -> int ID | int ID[]
+*/
+VarInfo param() :
+{Token id;}
+{
+     LOOKAHEAD(2147483647) <INT> id = <ID>
+    {
+        jjtThis.setName("int:" + id.image);
+        return new VarInfo("int", id.image);
+    }
+    | <INT> id = <ARRAYELEMENT> <RIGHTBRACKET>
+    {
+        jjtThis.setName("int[]:" + id.image);
+        id.image = id.image.replace("[","");
+        return new VarInfo("int[]", id.image);
+    }
+}
+
+//compound-stmt -> {local-declarations statement-list}
+void compoundStmt() :
+{
+ int paraSize = 0;
+ int sp = 0;
+ int tableSize = 0;
+}
+{
+    <LEFTBRACES>
+    {
+    //enter a new block,create a new hashmap
+    HashMap<String, VarInfo> map = new HashMap<String, VarInfo>();
+    symbolTable.getVarList().add(map);
+    for (VarInfo e :symbolTable.getTempFunPar()) {
+        if ("int".equals(e.getType())) {
+            e.setSize(1);
+        } else{
+            e.setSize(50);
+        }
+        symbolTable.addVar(e);
+        paraSize = e.getSize();
+    }
+    tableSize = symbolTable.getVarList().size();
+    codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,paraSize,codeGen.REG_SP,"ins sp") ;
+    symbolTable.getTempFunPar().clear();
+    }
+    localDeclarations()
+    statementList()
+    {
+      //leave a  block,remove a new hashmap
+      if (tableSize == symbolTable.getVarList().size()) {
+            sp = symbolTable.reduceLocalSize();
+            codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,-sp,codeGen.REG_SP,"des sp") ;
+            symbolTable.getVarList().remove(symbolTable.getVarList().size() - 1);
+      }
+    }
+    <RIGHTBRACES>
+}
+
+//local-declarations -> empty{ var-declaration}
+void localDeclarations() :
+{}
+{
+    (
+        varDeclaration()
+    )*
+}
+
+//statement-list -> empty{ statement}
+void statementList() :
+{}
+{
+    (
+        statement()
+    )*
+}
+
+//statement -> expression-stmt | compound-stmt | selection-stmt | iteration-stmt | return stmt
+void statement() :
+{}
+{
+    expressionStmt()|
+    compoundStmt()|
+    selectionStmt()|
+    iterationStmt()|
+    returnStmt()
+}
+
+
+//expression-stmt -> expression; | ;
+void expressionStmt() :
+{}
+{
+    expression() <SEMICOLON>
+    | <SEMICOLON>
+}
+
+//selection-stmt -> matched-stmt | unmatched-stmt
+void selectionStmt() :
+{
+  int savedLoc1 = 0;
+  int savedLoc2 = 0;
+  int currentLoc = 0;
+  Token exp;
+ }
+{
+
+       LOOKAHEAD(2147483647) <IF> <LEFTPARENTHESES> exp = expression()
+      {
+            jjtThis.setName("if");
+          if (!"int".equals(exp.type)) {
+              errorList.addExpSubscript(exp);
+          } else {
+              savedLoc1 = codeGen.emitSkip(1);
+          }
+       }
+       <RIGHTPARENTHESES> statement()
+       {
+            savedLoc2 = codeGen.emitSkip(1);
+            currentLoc = codeGen.emitSkip(0);
+            codeGen.emitBackup(savedLoc1);
+            codeGen.emitRM_Abs(codeGen.OP_JEQ,codeGen.REG_AC,currentLoc,"if: jmp to else");
+            codeGen.emitRestore() ;
+        }
+       <ELSE> statement()
+       {
+           currentLoc = codeGen.emitSkip(0);
+           codeGen.emitBackup(savedLoc2);
+           codeGen.emitRM_Abs(codeGen.OP_LDA,codeGen.REG_PC,currentLoc,"if jmp to end");
+           codeGen.emitRestore();
+       }
+       |
+      <IF> <LEFTPARENTHESES> exp = expression()
+      {
+        jjtThis.setName("if");
+          if (!"int".equals(exp.type)) {
+              errorList.addExpSubscript(exp);
+          } else {
+              savedLoc1 = codeGen.emitSkip(1);
+          }
+       }
+      <RIGHTPARENTHESES> statement()
+      {
+            currentLoc = codeGen.emitSkip(0);
+            codeGen.emitBackup(savedLoc1);
+            codeGen.emitRM_Abs(codeGen.OP_JEQ,codeGen.REG_AC,currentLoc,"if: jmp to end");
+            codeGen.emitRestore() ;
+      }
+}
+
+//iteration-stmt -> while (expression) statement
+void iterationStmt() :
+{
+    int savedLoc1 = 0;
+    int savedLoc2 = 0;
+    int currentLoc = 0;
+    Token exp;
+}
+{
+    <WHILE> <LEFTPARENTHESES>
+    {
+        savedLoc1 = codeGen.emitSkip(0);
+    }
+    exp = expression()
+    {
+        if (!"int".equals(exp.type)) {
+            errorList.addLeftAndRightNotInt(exp);
+        } else {
+            savedLoc2 = codeGen.emitSkip(1);
+        }
+     }
+    <RIGHTPARENTHESES> statement()
+    {
+        codeGen.emitRM_Abs(codeGen.OP_LDA,codeGen.REG_PC,savedLoc1,"while unconditional jmp") ;
+
+        currentLoc = codeGen.emitSkip(0);
+        codeGen.emitBackup(savedLoc2);
+        codeGen.emitRM_Abs(codeGen.OP_JEQ,codeGen.REG_AC,currentLoc,"while out of body");
+        codeGen.emitRestore();
+    }
+}
+
+//return-stmt -> return; | return expression;
+void returnStmt() :
+{
+    Token retExp;
+}
+{
+    LOOKAHEAD(2147483647) retExp = <RETURN> <SEMICOLON>
+    {
+        //检查返回值是否和函数头定义的一致
+        if (!"void".equals(symbolTable.getLatestDeclarationFun().getReturnType())) {
+            errorList.addFunReturnType(retExp);
+        } else {
+            if (!"main".equals(symbolTable.getLatestDeclarationFun().getName())){
+                int sp = symbolTable.reduceLocalSize();
+                codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,-sp,codeGen.REG_SP,"des sp") ;
+                codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_PC,0,codeGen.REG_FP,"jump  back to caller") ;
+            }
+        }
+    }
+    | <RETURN> retExp = expression() <SEMICOLON>
+    {
+        //检查返回值是否和函数头定义的一致
+        if (!retExp.type.equals(symbolTable.getLatestDeclarationFun().getReturnType())) {
+                errorList.addFunReturnType(retExp);
+        }else {
+            if (!"main".equals(symbolTable.getLatestDeclarationFun().getName())){
+                int sp = symbolTable.reduceLocalSize();
+                codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_SP,-sp,codeGen.REG_SP,"des sp") ;
+                codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_PC,0,codeGen.REG_FP,"jump  back to caller") ;
+            }
+        }
+    }
+}
+
+//expression -> var=expression | simple-expression
+Token expression() :
+{
+  Token left;
+  Token right;
+  int loc;
+  String varName;
+}
+{
+   LOOKAHEAD(2147483647) left = var()
+    {
+        varName = left.image;
+        codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC1,codeGen.tmpOffset--,codeGen.REG_MP,"op: push index");
+    }
+    <ASSIGN> right = expression()
+    {
+    jjtThis.setName("assign");
+    //检查右边是否为int类型的表达式
+    if (!"int".equals(right.type)) {
+        errorList.addLeftIsNotInt(right);
+    } else {
+        if (varName.contains("[")) {
+            varName = varName.substring(0, varName.indexOf("["));
+        }
+        codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC1,++codeGen.tmpOffset,codeGen.REG_MP,"op: load index");
+        if (symbolTable.isGlobalVar(varName)) {
+            codeGen.emitRM(codeGen.OP_STS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_GP,"assign: global store value");
+        } else {
+            codeGen.emitRM(codeGen.OP_STS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_LP,"assign: local store value");
+        }
+    }
+    left.type = "void";
+    //the type of assgin is void
+    return left;
+}
+    | left = simpleExperession()
+    {
+        return left;
+     }
+}
+
+//var -> ID| ID[expression]
+Token var() :
+{
+    Token id;
+    Token exp;
+    VarInfo var;
+    int loc;
+}
+{
+    id = <ID>
+    {
+    jjtThis.setName(id.image);
+    var = symbolTable.getVarByName(id.image);
+    if (var == null) {
+        errorList.addVarNotDeclared(id);
+    } else {
+        loc = symbolTable.getVarLocByVarName(id.image);
+        codeGen.emitRM(codeGen.OP_LDC,codeGen.REG_AC1,loc,0,"load const");
+        if (var.getGlobal()) {
+            codeGen.emitRM(codeGen.OP_LDS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_GP, "load global id value");
+        } else {
+            codeGen.emitRM(codeGen.OP_LDS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_LP, "load local id value");
+        }
+        //当作为函数参数传递时，数组a不会带括号，也可能为数组
+        id.type = var.getType();
+    }
+    return id;
+}
+    | id = <ARRAYELEMENT> exp = expression() <RIGHTBRACKET>
+    {
+        jjtThis.setName(id.image);
+        id.image = id.image.replace("[", "");
+        var = symbolTable.checkUndefined(id.image);
+        if (var == null)
+        {
+            errorList.addVarNotDeclared(id);
+        } else if (!"int[]".equals(var.getType())) {
+            errorList.addVarNotDeclared(id);
+        }
+        else
+        {
+            //Checks if the right side is an expression of type int
+            if (!"int".equals(exp.type)) {
+              errorList.addArraySubscript(exp);
+            } else{
+                //Get the starting index of the array
+                loc = symbolTable.getVarLocByVarName(id.image);
+                codeGen.emitRM(codeGen.OP_LDC,codeGen.REG_AC1,loc,0,"load const");
+                //Get the corresponding index of the element
+                codeGen.emitRO(codeGen.OP_ADD,codeGen.REG_AC1,codeGen.REG_AC1,codeGen.REG_AC,"op +");
+                if (var.getGlobal()) {
+                    codeGen.emitRM(codeGen.OP_LDS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_GP, "load global id value");
+                } else {
+                    codeGen.emitRM(codeGen.OP_LDS, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_LP, "load local id value");
+                }
+            }
+        }
+        id.image = id.image + "[" + exp.image + "]";
+        id.type = "int";
+        return id;
+    }
+}
+
+
+//simple-experession -> additive-expression (relop additive-expression)?
+Token simpleExperession() :
+{
+  Token ret;
+  Token temp;
+ Token re;
+ }
+{
+    ret = additiveExpression()
+    [
+        re = relop()
+        {
+            jjtThis.setName("relop: " + re);
+            codeGen.emitRO(codeGen.OP_ST, codeGen.REG_AC, codeGen.tmpOffset--, codeGen.REG_MP, "op: push left");
+            /* gen code for ac = right operand */
+        }
+        temp = additiveExpression()
+        {
+            //只有int能比较，当两个有一个不是int类型时
+            if (!"int".equals(ret.type) || !"int".equals(temp.type)) {
+                errorList.addLeftAndRightNotInt(ret);
+            } else {
+                codeGen.emitRO(codeGen.OP_LD, codeGen.REG_AC1, ++codeGen.tmpOffset, codeGen.REG_MP, "op: load left");
+                codeGen.emitRO(codeGen.OP_SUB, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_AC, "sub before relop");
+                switch (re.image) {
+                    case "<=": {
+                        codeGen.emitRM(codeGen.OP_JLE,codeGen.REG_AC,2,codeGen.REG_PC, "op <=");
+                        break;
+                    }
+                    case "<": {
+                        codeGen.emitRM(codeGen.OP_JLT, codeGen.REG_AC,2,codeGen.REG_PC, "op <");
+                        break;
+                    }
+                    case ">": {
+                        codeGen.emitRM(codeGen.OP_JGT, codeGen.REG_AC,2,codeGen.REG_PC, "op >");
+                        break;
+                    }
+                    case ">=": {
+                        codeGen.emitRM(codeGen.OP_JGE, codeGen.REG_AC,2,codeGen.REG_PC, "op >=");
+                        break;
+                    }
+                    case "==": {
+                        codeGen.emitRM(codeGen.OP_JEQ, codeGen.REG_AC,2,codeGen.REG_PC, "op ==");
+                        break;
+                    }
+                    case "!=": {
+                        codeGen.emitRM(codeGen.OP_JNE, codeGen.REG_AC,2,codeGen.REG_PC, "op !=");
+                        break;
+                    }
+                    default:
+                }
+                codeGen.emitRM(codeGen.OP_LDC,codeGen.REG_AC,0,codeGen.REG_AC, "false case");
+                codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_PC,1,codeGen.REG_PC, "unconditional jmp");
+                codeGen.emitRM(codeGen.OP_LDC,codeGen.REG_AC,1,codeGen.REG_AC, "true case");
+            }
+            ret.type = "int";
+        }
+    ]
+    {return ret;}
+}
+
+//relop -> <=|<|>|>=|==|!=
+Token relop() :
+{Token id;}
+{
+    id = <LTE>
+    {return id;}
+    | id = <LT> {return id;}
+    | id = <GT> {return id;}
+    | id = <GTE> {return id;}
+    | id = <EQUAL> {return id;}
+    | id = <NOTEQUAL> {return id;}
+
+}
+
+//additive-expression -> term{ addop term}
+Token additiveExpression() :
+{
+  Token op;
+  Token ret;
+  Token temp;
+}
+{
+    ret = term()
+    (
+        op = addop()
+        {
+            jjtThis.setName("addop:" + op);
+            codeGen.emitRO(codeGen.OP_ST, codeGen.REG_AC, codeGen.tmpOffset--, codeGen.REG_MP, "op: push left");
+            /* gen code for ac = right operand */
+        }
+        temp = term()
+        {
+            //when one of them are not int
+            if (!"int".equals(ret.type) || !"int".equals(temp.type)) {
+                errorList.addLeftAndRightNotInt(ret);
+            } else {
+                codeGen.emitRO(codeGen.OP_LD, codeGen.REG_AC1, ++codeGen.tmpOffset, codeGen.REG_MP, "op: load left");
+                if ("+".equals(op.image)) {
+                    codeGen.emitRO(codeGen.OP_ADD, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_AC,"op +");
+                } else {
+                    codeGen.emitRO(codeGen.OP_SUB, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_AC,"op -");
+                }
+            }
+            ret.type = "int";
+    }
+    )*
+    {return ret;}
+}
+
+
+//term -> factor{  mulop factor}
+Token term() :
+{
+ Token op;
+  Token ret;
+  Token temp;
+ }
+{
+    ret = factor()
+    (
+        op = mulop()
+        {
+            jjtThis.setName("mulop: " + op);
+            codeGen.emitRO(codeGen.OP_ST, codeGen.REG_AC, codeGen.tmpOffset--, codeGen.REG_MP, "op: push left");
+            /* gen code for ac = right operand */
+        }
+        temp = factor()
+        {
+            //judge whereter the left and right are both int
+            if (!"int".equals(ret.type) || !"int".equals(temp.type)) {
+                errorList.addLeftAndRightNotInt(ret);
+            } else {
+                codeGen.emitRO(codeGen.OP_LD, codeGen.REG_AC1, ++codeGen.tmpOffset, codeGen.REG_MP, "op: load left");
+                if ("*".equals(op.image)) {
+                    codeGen.emitRO(codeGen.OP_MUL, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_AC,"op *");
+                } else {
+                    codeGen.emitRO(codeGen.OP_DIV, codeGen.REG_AC, codeGen.REG_AC1, codeGen.REG_AC,"op /");
+                }
+            }
+            ret.type = "int";
+        }
+    )*
+    {return ret;}
+}
+//addop -> +|-
+Token addop()  :
+{Token id;}
+{
+    id = <PLUS> {return id;}
+    | id = <MINUS> {return id;}
+}
+
+//mulop -> *|/
+Token mulop()  :
+{Token id;}
+{
+    id = <TIMES> {return id;}
+    | id = <DIVIDE>
+    {return id;}
+}
+
+//factor -> (expression) | var | call | NUM
+Token factor() :
+{
+ Token t;
+ }
+{
+
+    <LEFTPARENTHESES> t = expression() <RIGHTPARENTHESES>
+    {
+        return t;
+    }
+    |  LOOKAHEAD(2147483647) t = call()
+    {
+        return t;
+    }
+    | t = var()
+    {
+        return t;
+    }
+    | t = <NUM>
+    {
+        jjtThis.setName(t.image);
+        codeGen.emitRM(codeGen.OP_LDC, codeGen.REG_AC, Integer.parseInt(t.image), 0, "load const");
+        t.type = "int";
+        return t;
+    }
+}
+
+//call -> ID(args)
+Token call() :
+{
+ Token id;
+ List<String> arList;
+ int jumpLoc;
+ }
+{
+    id = <ID>
+    {
+        jjtThis.setName(id.image);
+        FunInfo fun = symbolTable.getFunInfoByName(id.image);
+        if (fun == null)
+        {
+          errorList.addFunNotDeclared(id);
+        } else {
+            //st lp to prepare arg
+            codeGen.emitRM(codeGen.OP_ST,codeGen.REG_SP,codeGen.tmpOffset--,codeGen.REG_MP,"push sp");
+            codeGen.emitRM(codeGen.OP_ST,codeGen.REG_LP,codeGen.tmpOffset--,codeGen.REG_MP,"push lp");
+            codeGen.emitRM(codeGen.OP_ST,codeGen.REG_FP,codeGen.tmpOffset--,codeGen.REG_MP,"push fp");
+            codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC1,codeGen.tmpOffset--,codeGen.REG_MP,"push ac1");
+        }
+    }
+    <LEFTPARENTHESES> arList = args() <RIGHTPARENTHESES>
+    {
+        //查找函数有无定义
+        if (fun == null)
+        {
+          errorList.addFunNotDeclared(id);
+        }
+        else
+        {
+          //查找参数列表
+          List<VarInfo> params = fun.getParams();
+          id.type = fun.getReturnType();
+          //形参数量类型检查
+          if (params.size() != arList.size()) {
+              errorList.addFunArgSizeError(id);
+          } else {
+              boolean flag = true;
+              for(int i = 0; i < params.size(); i++) {
+                if (!params.get(i).getType().equals(arList.get(i))) {
+                    flag = false;
+                    break;
+                }
+              }
+              if (!flag) {
+                  errorList.addFunArgTypeError(id);
+              } else {
+                  //true case
+                  codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_LP,0,codeGen.REG_SP,"get new Lp");
+                  codeGen.emitRM(codeGen.OP_LDA,codeGen.REG_FP,1,codeGen.REG_PC,"get new fp");
+                  jumpLoc = fun.getLoc();
+                  codeGen.emitRM_Abs(codeGen.OP_LDA,codeGen.REG_PC,jumpLoc,"jump to fun");
+                  codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC1,++codeGen.tmpOffset,codeGen.REG_MP,"op: load ac1");
+                  codeGen.emitRM(codeGen.OP_LD,codeGen.REG_FP,++codeGen.tmpOffset,codeGen.REG_MP,"op: load fp");
+                  codeGen.emitRM(codeGen.OP_LD,codeGen.REG_LP,++codeGen.tmpOffset,codeGen.REG_MP,"op: load lp");
+                  codeGen.emitRM(codeGen.OP_LD,codeGen.REG_SP,++codeGen.tmpOffset,codeGen.REG_MP,"op: load sp");
+              }
+          }
+          id.type = fun.getReturnType();
+        }
+        return id;
+    }
+    | <OUTPUT> <LEFTPARENTHESES> id = expression() <RIGHTPARENTHESES>
+    {
+
+    jjtThis.setName("output");
+        if (!"int".equals(id.type)) {
+            errorList.addFunArgTypeError(id);
+        }
+        codeGen.emitRO(codeGen.OP_OUT, codeGen.REG_AC, 0,0,"write ac");
+        return new Token("void");
+    }
+    | id = <INPUT> <LEFTPARENTHESES> <RIGHTPARENTHESES>
+    {
+jjtThis.setName("input");
+        codeGen.emitRO(codeGen.OP_IN, codeGen.REG_AC, 0,0,"read integer value");
+        id.type = "int";
+        return id;
+    }
+}
+
+//args -> arg-list | empty
+List<String> args() :
+{
+    List<String> args;
+ }
+{
+    [
+        args = argList()
+        {
+            return args;
+        }
+    ]
+    {
+        return Collections.emptyList();
+    }
+}
+
+//arg-list -> expression{ , expression}
+List<String> argList() :
+{Token t;
+List<String> args;
+int i = 0;
+VarInfo var;
+}
+{
+    t = expression()
+    {
+        args = new ArrayList<String>();
+        args.add(t.type);
+        if ("int".equals(t.type)) {
+            codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+        } else {
+            var = symbolTable.checkUndefined(t.image);
+            if (var.getGlobal()) {
+                for (int j = var.getLoc(); j < var.getLoc() + 50; j++) {
+                    codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC,j,codeGen.REG_GP,"prepared load int[]");
+                    codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+                }
+            } else {
+                for (int j = var.getLoc(); j < var.getLoc() + 50; j++) {
+                    codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC,j,codeGen.REG_LP,"prepared load int[]");
+                    codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+                }
+            }
+        }
+    }
+    (
+        <COMMA>
+        t = expression()
+        {
+            args.add(t.type);
+            if ("int".equals(t.type)) {
+                codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+            } else {
+                var = symbolTable.checkUndefined(t.image);
+                if (var.getGlobal()) {
+                    for (int j = var.getLoc(); j < var.getLoc() + 50; j++) {
+                        codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC,j,codeGen.REG_GP,"prepare load int[]");
+                        codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+                    }
+                } else {
+                    for (int j = var.getLoc(); j < var.getLoc() + 50; j++) {
+                        codeGen.emitRM(codeGen.OP_LD,codeGen.REG_AC,j,codeGen.REG_LP,"prepare load int[]");
+                        codeGen.emitRM(codeGen.OP_ST,codeGen.REG_AC,i++,codeGen.REG_SP,"prepare arg");
+                    }
+
+                }
+            }
+        }
+    )*
+    {
+        return args;
+    }
+}

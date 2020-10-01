@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
-    <file url="file://$PROJECT_DIR$/ConditionValue.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/ErrorList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/MyCompiler.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/QTInfo.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/QTList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/VarInfo.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/VarList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/VariableNameGenerator.java" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/src/ArgList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/ConditionValue.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/ErrorList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/QTInfo.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/QTList.java" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/VariableNameGenerator.java" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/src/com/minic/compiler/MainWindows.java" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/src/com/minic/compiler/MyCompiler.java" charset="GBK" />
   </component>
 </project>
