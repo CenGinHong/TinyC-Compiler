@@ -56,7 +56,7 @@ java -jar MyCompiler.jar
 
 - 存在语义错误时，例如使用未定义的变量，函数参数不一致时，会提示具体错误，也无法生成中间代码
 
-<img src="\README.assets\image-20200619184256037.png" alt="image-20200619184256037" style="zoom:67%;" />
+<img src="https://gitee.com/chen_jian_hang/pic/raw/master/image/image-20200619184256037.png" alt="image-20200619184256037" style="zoom:67%;" />
 
 ### 中间代码生成
 
