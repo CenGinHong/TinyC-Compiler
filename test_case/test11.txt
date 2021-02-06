@@ -1,0 +1,22 @@
+/*报错检测5  （函数调用出错）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+int fun(int a)
+{
+ a=1;
+ return 1;
+}
+void fun2(void)
+{ 
+ output(1);
+}
+void main(void)
+{
+  int b;
+int c;
+c=1;
+b=fun(c,c);   
+  b=fun(c);
+  b=fun();
+  b=fun2(c);     
+  b=fun2();
+}

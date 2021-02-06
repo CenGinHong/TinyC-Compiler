@@ -1,0 +1,23 @@
+/*随机检测2  （判断输入的数是否为水仙花数） 153 是水仙花数*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+int main(void)
+{
+ int num;
+ int i;
+int j;
+int k;
+num=input();
+if(num>99)
+if(num<1000)
+{
+ i=num/100;
+ j=(num-i*100)/10;
+k=num-i*100-j*10;
+if(num==i*i*i+j*j*j+k*k*k)
+output(1);
+else output(0);
+}
+else output(0);
+else output(0);
+return 0;
+}

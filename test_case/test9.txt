@@ -1,0 +1,25 @@
+
+/*随机检测4  （输入a,n求S=a+aa+aaa+aaaa+….+aaa..aa）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+void main(void)
+{
+ int a;
+ int n;
+int S;
+int i;
+int sn;
+i=0;
+S=0;
+a=input();
+ n=input();
+sn=a;
+ while(i<n)
+{
+   S=S+sn;
+   sn=sn*10+a;
+i=i+1;
+}
+ output(S);
+
+// output(multiple);
+}

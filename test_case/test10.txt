@@ -1,0 +1,20 @@
+/*随机检测5  （判断回文数abcba）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+void main(void)
+{
+int num;
+int s;
+int y;
+y=0;
+num=input();
+s=num;
+while(s>0)
+{
+y=y*10+s-s/10*10;
+s=s/10;
+}
+if(y==num)
+output(1);
+else
+output(0);
+}

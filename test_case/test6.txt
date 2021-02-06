@@ -1,0 +1,22 @@
+/*随机检测1  （输入三个整数，进行从小到大输出）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+int main(void)
+{
+ int a;
+int b;
+int c;
+int t;
+a=input();
+b=input();
+c=input();
+if(a>b)
+{t=a;a=b;b=t;}
+if(a>c)
+{t=c;c=a;a=t;}
+if(b>c)
+{t=b;b=c;c=t;}
+output(a);
+output(b);
+output(c);
+return 0;
+}

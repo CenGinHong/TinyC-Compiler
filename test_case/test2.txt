@@ -1,0 +1,24 @@
+/*检测比较运算符*/
+/*正确输出 2  2  1  1  1*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+int main(void)
+{
+int a;
+int b;
+int c;
+int d;
+a=1;
+b= 2;
+c=3;
+d=c;
+if(a>b)   output(a);
+else  output(b);
+if(a+b<c)   output(a);
+else  output(b);
+if(a>=b-1)   output(a);
+else  output(b);
+if(a+d<=b-1+c)   output(a);
+if(a+d==b-1+c)   output(a);
+if(a+d!=1)   output(b);
+return 0;
+}

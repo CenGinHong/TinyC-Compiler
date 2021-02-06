@@ -1,0 +1,30 @@
+
+/*随机检测3  （求两个数的最大公约数和最小公倍数）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+int gcd(int u,int v)
+{
+if(v==0)
+return u;
+else return gcd(v,u-u/v*v);
+}
+
+int lcm(int u,int v)
+{
+int c;
+c= gcd(u,v);
+return u*v/c;
+}
+
+void main(void)
+{
+ int a;
+ int b;
+int divisor;
+int multiple;
+ a=input();
+ b=input();
+ divisor= gcd(a,b);
+ multiple=lcm(a,b);
+ output(divisor);
+ output(multiple);
+}

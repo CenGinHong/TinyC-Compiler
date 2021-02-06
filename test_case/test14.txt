@@ -1,0 +1,12 @@
+/*报错检测4  （if、while关键词使用错误）*/
+/*因为没有处理好中文编码，执行时请删除中文注释*/
+void main(void)
+{
+ int a;
+ a=1;
+ if(a==1)
+ output(a);
+ else output(2);
+ else output(3);      /*多出一个else*/
+ while(a==1)        /*没有语句*/
+}
